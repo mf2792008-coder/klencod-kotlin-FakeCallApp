@@ -230,14 +230,6 @@ fun IncomingScreen(s: AppState) {
             }
         }
 
-        Text(
-            "اسحب زر الرد أو الرفض",
-            color = Color.White.copy(alpha = 0.75f),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 225.dp)
-        )
-
         Row(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -248,7 +240,8 @@ fun IncomingScreen(s: AppState) {
         ) {
             var anyPressed by remember { mutableStateOf(false) }
             CallButton(s, Ic.PHONE, Green, anyPressed, { anyPressed = it }) { s.accept() }
-            CallButton(s, Ic.DECLINE, Red, anyPressed, { anyPressed = it }) { s.decline() }
+            // الرفض: يخرج من التطبيق مباشرة من غير شاشة "Call Ended"
+            CallButton(s, Ic.DECLINE, Red, anyPressed, { anyPressed = it }) { s.closeApp() }
         }
 
         Column(
@@ -273,6 +266,7 @@ fun IncomingScreen(s: AppState) {
 /**
  * زرار الرد/الرفض: الزرار نفسه ثابت ما بيتحركش أبدًا.
  * حواليه دايرة بيضا شفافة بتتموّج (تكبر وتصغر). أول ما تلمسه الدايرة بتثبت على أكبر حجم،
+ * والزر المقابل الدايرة البيضا بتاعته بتروح صفر طول ما إنت ضاغط.
  * ولما تسحب دايرة سودا (شفافيتها أقل من البيضا) بتطلع فوق البيضا وتكبر مع السحب لحد ما تملى
  * مساحة البيضا. لو سيبت وهي مليانة المكالمة تفتح (أو تتقفل) من غير ما حاجة تغطي الشاشة.
  * لو سيبت قبل كده السواد يرجع والدايرة البيضا ترجع تتموّج.
@@ -296,14 +290,14 @@ private fun CallButton(
     val scale = remember { Animatable(PULSE_MIN) }
 
     // التموّج: يكبر ويصغر بشكل دائم. وقت اللمس يثبت على أكبر حجم.
-    // لو زر تاني اتضغط يثبّت الحركة
-    val shouldPause = anyPressed && !pressed
-    LaunchedEffect(pressed, shouldPause) {
+    // لو الزر التاني اتضغط، الدايرة البيضا هنا تروح صفر.
+    val otherPressed = anyPressed && !pressed
+    LaunchedEffect(pressed, otherPressed) {
         if (pressed) {
             setAnyPressed(true)
             scale.animateTo(PULSE_PRESS, tween(120))
-        } else if (shouldPause) {
-            // زر تاني مضغوط: نوقف هنا
+        } else if (otherPressed) {
+            scale.animateTo(0f, tween(150))
         } else {
             while (true) {
                 scale.animateTo(PULSE_MAX, tween(900, easing = FastOutSlowInEasing))
@@ -315,9 +309,11 @@ private fun CallButton(
     Box(
         Modifier
             .size(120.dp)
-            // الدايرة البيضا (شفافية 50%) وفوقها السودا، الاتنين ورا الزرار
+            // الدايرة البيضا (شفافية 60%) وفوقها السودا، الاتنين ورا الزرار
             .drawBehind {
-                drawCircle(Color.White.copy(alpha = WHITE_ALPHA), radius = whiteBase * scale.value)
+                if (scale.value > 0f) {
+                    drawCircle(Color.White.copy(alpha = WHITE_ALPHA), radius = whiteBase * scale.value)
+                }
                 if (blackR > 0f) drawCircle(Color.Black.copy(alpha = BLACK_ALPHA), radius = blackR)
             }
             .pointerInput(Unit) {
@@ -333,12 +329,13 @@ private fun CallButton(
                             ch.consume()
                         }
                         if (total.getDistance() >= limit) {
-                            // السودا مليانة مساحة البيضا: المكالمة تفتح
+                            // السودا مليانة مساحة البيضا: المكالمة تفتح (أو التطبيق يقفل)
                             done = true
                             trigger()
                         } else {
                             val from = blackR
                             pressed = false
+                            setAnyPressed(false)   // الزر التاني يرجع يتموّج
                             scope.launch {
                                 Animatable(from).animateTo(0f, tween(200)) { blackR = value }
                             }
@@ -356,8 +353,8 @@ private fun CallButton(
                 .background(accent),
             contentAlignment = Alignment.Center
         ) {
-            // نفس أيقونة الرد للاتنين (الرفض بس لونه أحمر)
-            Glyph(Ic.PHONE, Color.White, 38.dp)
+            // الرد = سماعة واقفة، الرفض = سماعة نايمة
+            Glyph(ic, Color.White, 38.dp)
         }
     }
 }
