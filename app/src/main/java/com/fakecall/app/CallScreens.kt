@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -353,8 +354,12 @@ private fun CallButton(
                 .background(accent),
             contentAlignment = Alignment.Center
         ) {
-            // الرد = سماعة واقفة، الرفض = سماعة نايمة
-            Glyph(ic, Color.White, 38.dp)
+            // الرد = سماعة واقفة، الرفض = نفس السماعة متدوّرة (نايمة) من غير أي شرطة
+            if (ic == Ic.DECLINE) {
+                Box(Modifier.rotate(135f)) { Glyph(Ic.PHONE, Color.White, 38.dp) }
+            } else {
+                Glyph(ic, Color.White, 38.dp)
+            }
         }
     }
 }
