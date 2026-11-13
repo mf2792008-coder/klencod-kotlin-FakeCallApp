@@ -1,6 +1,7 @@
 package com.fakecall.app
 
 import android.Manifest
+import android.app.AlertDialog
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -264,6 +265,8 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 31 &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
         ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
+        if (checkSelfPermission(Manifest.permission.WRITE_CALL_LOG) != PackageManager.PERMISSION_GRANTED)
+            need.add(Manifest.permission.WRITE_CALL_LOG)
         if (need.isNotEmpty()) permissions.launch(need.toTypedArray())
     }
 

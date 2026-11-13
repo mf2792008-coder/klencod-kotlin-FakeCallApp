@@ -65,7 +65,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -231,6 +230,14 @@ fun IncomingScreen(s: AppState) {
             }
         }
 
+        Text(
+            "اسحب زر الرد أو الرفض",
+            color = Color.White.copy(alpha = 0.75f),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 225.dp)
+        )
+
         Row(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -241,8 +248,7 @@ fun IncomingScreen(s: AppState) {
         ) {
             var anyPressed by remember { mutableStateOf(false) }
             CallButton(s, Ic.PHONE, Green, anyPressed, { anyPressed = it }) { s.accept() }
-            // الرفض: يخرج من التطبيق مباشرة من غير شاشة "Call Ended"
-            CallButton(s, Ic.DECLINE, Red, anyPressed, { anyPressed = it }) { s.closeApp() }
+            CallButton(s, Ic.DECLINE, Red, anyPressed, { anyPressed = it }) { s.decline() }
         }
 
         Column(
@@ -267,7 +273,6 @@ fun IncomingScreen(s: AppState) {
 /**
  * زرار الرد/الرفض: الزرار نفسه ثابت ما بيتحركش أبدًا.
  * حواليه دايرة بيضا شفافة بتتموّج (تكبر وتصغر). أول ما تلمسه الدايرة بتثبت على أكبر حجم،
- * والزر المقابل الدايرة البيضا بتاعته بتروح صفر طول ما إنت ضاغط.
  * ولما تسحب دايرة سودا (شفافيتها أقل من البيضا) بتطلع فوق البيضا وتكبر مع السحب لحد ما تملى
  * مساحة البيضا. لو سيبت وهي مليانة المكالمة تفتح (أو تتقفل) من غير ما حاجة تغطي الشاشة.
  * لو سيبت قبل كده السواد يرجع والدايرة البيضا ترجع تتموّج.
@@ -291,14 +296,14 @@ private fun CallButton(
     val scale = remember { Animatable(PULSE_MIN) }
 
     // التموّج: يكبر ويصغر بشكل دائم. وقت اللمس يثبت على أكبر حجم.
-    // لو الزر التاني اتضغط، الدايرة البيضا هنا تروح صفر.
-    val otherPressed = anyPressed && !pressed
-    LaunchedEffect(pressed, otherPressed) {
+    // لو زر تاني اتضغط يثبّت الحركة
+    val shouldPause = anyPressed && !pressed
+    LaunchedEffect(pressed, shouldPause) {
         if (pressed) {
             setAnyPressed(true)
             scale.animateTo(PULSE_PRESS, tween(120))
-        } else if (otherPressed) {
-            scale.animateTo(0f, tween(150))
+        } else if (shouldPause) {
+            // زر تاني مضغوط: نوقف هنا
         } else {
             while (true) {
                 scale.animateTo(PULSE_MAX, tween(900, easing = FastOutSlowInEasing))
@@ -310,11 +315,9 @@ private fun CallButton(
     Box(
         Modifier
             .size(120.dp)
-            // الدايرة البيضا (شفافية 60%) وفوقها السودا، الاتنين ورا الزرار
+            // الدايرة البيضا (شفافية 50%) وفوقها السودا، الاتنين ورا الزرار
             .drawBehind {
-                if (scale.value > 0f) {
-                    drawCircle(Color.White.copy(alpha = WHITE_ALPHA), radius = whiteBase * scale.value)
-                }
+                drawCircle(Color.White.copy(alpha = WHITE_ALPHA), radius = whiteBase * scale.value)
                 if (blackR > 0f) drawCircle(Color.Black.copy(alpha = BLACK_ALPHA), radius = blackR)
             }
             .pointerInput(Unit) {
@@ -330,13 +333,12 @@ private fun CallButton(
                             ch.consume()
                         }
                         if (total.getDistance() >= limit) {
-                            // السودا مليانة مساحة البيضا: المكالمة تفتح (أو التطبيق يقفل)
+                            // السودا مليانة مساحة البيضا: المكالمة تفتح
                             done = true
                             trigger()
                         } else {
                             val from = blackR
                             pressed = false
-                            setAnyPressed(false)   // الزر التاني يرجع يتموّج
                             scope.launch {
                                 Animatable(from).animateTo(0f, tween(200)) { blackR = value }
                             }
@@ -354,12 +356,8 @@ private fun CallButton(
                 .background(accent),
             contentAlignment = Alignment.Center
         ) {
-            // الرد = سماعة واقفة، الرفض = نفس السماعة متدوّرة (نايمة) من غير أي شرطة
-            if (ic == Ic.DECLINE) {
-                Box(Modifier.rotate(135f)) { Glyph(Ic.PHONE, Color.White, 38.dp) }
-            } else {
-                Glyph(ic, Color.White, 38.dp)
-            }
+            // نفس أيقونة الرد للاتنين (الرفض بس لونه أحمر)
+            Glyph(Ic.PHONE, Color.White, 38.dp)
         }
     }
 }
@@ -477,7 +475,15 @@ fun ActiveScreen(s: AppState) {
                 }, Modifier.weight(1f))
             }
             Spacer(Modifier.height(26.dp))
-            CircleBtn(Red, 68, { s.end() }) { Glyph(Ic.DECLINE, Color.White, 30.dp) }
+            // زر الإنهاء يظهر بعد 5 ثواني من بداية المكالمة
+            androidx.compose.animation.AnimatedVisibility(
+                visible = s.seconds >= 5,
+                enter = androidx.compose.animation.fadeIn(tween(400)) +
+                        androidx.compose.animation.scaleIn(tween(400)),
+                exit  = androidx.compose.animation.fadeOut(tween(200))
+            ) {
+                CircleBtn(Red, 68, { s.end() }) { Glyph(Ic.DECLINE, Color.White, 30.dp) }
+            }
         }
     }
 }

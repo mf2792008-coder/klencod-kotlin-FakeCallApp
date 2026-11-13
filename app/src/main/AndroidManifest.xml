@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- إبقاء الشاشة شغالة بعد زرار القفل -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- سجل المكالمات -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />

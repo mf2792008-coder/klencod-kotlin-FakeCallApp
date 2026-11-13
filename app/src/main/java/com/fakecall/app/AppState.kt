@@ -104,6 +104,8 @@ class AppState(private val ctx: Context, val audio: CallAudio) {
     fun end() {
         finalSeconds = seconds
         audio.end()
+        // كتابة المكالمة في سجل الهاتف كمكالمة واردة مُجاب عليها
+        Thread { CallLogWriter.writeAnswered(ctx, active.name, active.number, finalSeconds) }.start()
         screen = Screen.Ended
     }
 
@@ -111,6 +113,8 @@ class AppState(private val ctx: Context, val audio: CallAudio) {
         stopRing()
         finalSeconds = 0
         audio.end()
+        // كتابة المكالمة في سجل الهاتف كمكالمة واردة مفوّتة
+        Thread { CallLogWriter.writeMissed(ctx, active.name, active.number) }.start()
         // اترفضت وهي بترن: ترن تاني بعد 30 ثانية
         if (Store.redial(ctx)) Scheduler.scheduleRedial(ctx, 30)
         screen = Screen.Ended
